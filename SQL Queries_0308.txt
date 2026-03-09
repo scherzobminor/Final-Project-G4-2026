@@ -1,0 +1,85 @@
+1. This step was to ensure our SQL data was properly formatted and saved into a SQL table: SELECT * FROM btc LIMIT 10 
+2. This joined out bitcoin table with our ethereum table: SELECT btc.date, btc.price AS btc_price, eth.price AS eth_price FROM btc 
+                                                            JOIN eth ON btc.Date=eth.Date
+3. This joined our bitcoin and ethereum table to our ripple table: SELECT btc_eth.Date, btc_eth.btc_price, btc_eth.eth_price, xrp.Price AS xrp_price FROM btc_eth 
+                                                                    JOIN xrp ON btc_eth.Date=xrp.Date
+4. This step joined our bitcoin, ethereum and ripple table to our solana table, binance coin table and tether table: 
+                SELECT btc_eth_xrp.Date, btc_eth_xrp.btc_price, btc_eth_xrp.eth_price, btc_eth_xrp.xrp_price, 
+                        sol.Price AS sol_price, bnb.Price AS bnb_price, usdt.Price AS usdt_price
+                        FROM btc_eth_xrp
+                        JOIN sol ON btc_eth_xrp.Date=sol.Date
+                        JOIN bnb ON btc_eth_xrp.Date=bnb.Date
+                        JOIN usdt ON btc_eth_xrp.Date=usdt.Date
+        This new table was named "crypto returns"
+5. This step was to ensure our crypto_returns table was properly formatted and saved into a SQL table: SELECT * FROM crypto_returns
+6. This found the number of days in the last year that had a positive return for bitcoin: 
+        SELECT COUNT(Date)
+            FROM crypto_returns
+            WHERE btc_price_logret >0
+7. This showed the the highest return day and the lowest return day for bitcoin over the last year: 
+                    SELECT MAX(btc_price_logret), MIN (btc_price_logret)
+                        FROM crypto_returns
+8. This step validated the above findings and labeled the exact dates with the highest return: 
+                SELECT Date, btc_price_logret
+                        FROM crypto_returns
+                        ORDER BY btc_price_logret DESC
+                        LIMIT 5
+9. This step validated the above findings and labeled the exact dates  with the lowest return:
+                    SELECT Date, btc_price_logret
+                        FROM crypto_returns
+                        ORDER BY btc_price_logret ASC
+                        LIMIT 5
+10. This query replaced date into month and year. It gave use the average monthly return for each coin:
+    SELECT 
+        strftime('%Y-%m', Date) AS month,
+        AVG(btc_price_logret) AS avg_btc_return,
+        AVG(eth_price_logret) AS avg_eth_return,
+        AVG(xrp_price_logret) AS avg_xrp_return,
+        AVG(sol_price_logret) AS avg_sol_return,
+        AVG(bnb_price_logret) AS avg_bnb_return,
+        AVG(usdt_price_logret) AS avg_usdt_return
+        FROM crypto_returns
+        GROUP BY month
+        ORDER BY month
+11. This query combined our unstable crytp and showed which days had the highest daily average return among all of our unstable coins. It returned the 10 highest perfroming days for all crypto over the last year:  
+        SELECT Date, AVG(log_return)
+                            FROM tidy_crypto_returns
+                            WHERE coin_id!= 'usdt'
+                            GROUP BY Date 
+                            ORDER BY AVG(log_return) DESC
+                            LIMIT 10
+12.#This query calculates Bitcoin’s 30-day rolling volatility by taking the average absolute price change over the previous 30 days for each date.
+query = """
+SELECT
+    c1.Date,
+    c1.btc_price_logret,
+    (
+        SELECT AVG(c2.btc_price_logret * c2.btc_price_logret) - 
+               AVG(c2.btc_price_logret) * AVG(c2.btc_price_logret)
+        FROM crypto_returns c2
+        WHERE date(c2.Date) BETWEEN date(c1.Date,'-30 day') AND date(c1.Date)
+    ) AS rolling_volatility
+FROM crypto_returns c1
+ORDER BY c1.Date
+"""
+
+13.#This query finds all Bitcoin dates where the price is above the average price.
+query = """
+SELECT
+    Date,
+    Price
+    FROM btc
+    WHERE Price >
+      (
+        SELECT AVG(Price)
+        FROM btc
+      )
+ORDER BY Price DESC
+"""
+
+pd.read_sql(query, conn).tail(20)
+
+df_price = pd.read_sql(query, conn)
+
+
+df_price.tail(20)
